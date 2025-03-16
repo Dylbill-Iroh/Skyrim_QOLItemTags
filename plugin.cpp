@@ -541,35 +541,39 @@ void RemoveTagsFromFormOrRef(RE::TESForm* form) {
 void RemoveTags() {
     recentItemsMutex.lock();
     size_t size = recentItems.size();
+    //logger::info("recentItems size[{}]", size);
     for (size_t i = 0; i < size; i++) {
         auto* form = recentItems[i];
         if (gfuncs::IsFormValid(form)) {
-            int itemCount = gfuncs::GetItemCount_NoChecks(player, form);
-            if (itemCount > 0) {
-                auto* ref = form->AsReference();
-                if (gfuncs::IsFormValid(ref)) {
-                    RE::TESForm* baseForm = ref->GetBaseObject();
-                    if (gfuncs::IsFormValid(baseForm)) {
-                        std::string baseName = baseForm->GetName();
-                        std::string refName = ref->GetDisplayFullName();
-                        if (baseName == refName && baseName != "") {
-                            std::string newName = RemoveRecentItemTagFromString(baseName);
+            auto* ref = form->AsReference();
+            if (gfuncs::IsFormValid(ref)) {
+                RE::TESForm* baseForm = ref->GetBaseObject();
+                if (gfuncs::IsFormValid(baseForm)) {
+                    std::string baseName = baseForm->GetName();
+                    std::string refName = ref->GetDisplayFullName();
+                    if (baseName == refName && baseName != "") {
+                        std::string newName = RemoveRecentItemTagFromString(baseName);
+                        if (newName != baseName) {
                             gfuncs::SetFormName(baseForm, newName);
                             if (ref->GetDisplayFullName() != newName) {
                                 gfuncs::SetFormName(baseForm, baseName);
                                 ref->SetDisplayName(newName, true);
                             }
                         }
-                        else if (refName != "") {
-                            std::string newName = RemoveRecentItemTagFromString(refName);
+                    }
+                    else if (refName != "") {
+                        std::string newName = RemoveRecentItemTagFromString(refName);
+                        if (newName != refName) {
                             ref->SetDisplayName(newName, true);
                         }
                     }
                 }
-                else {
-                    std::string baseName = form->GetName();
-                    if (baseName != "") {
-                        std::string newName = RemoveRecentItemTagFromString(baseName);
+            }
+            else {
+                std::string baseName = form->GetName();
+                if (baseName != "") {
+                    std::string newName = RemoveRecentItemTagFromString(baseName);
+                    if (newName != baseName) {
                         gfuncs::SetFormName(form, newName);
                     }
                 }
@@ -580,14 +584,17 @@ void RemoveTags() {
     recentItemsMutex.unlock();
 
     questItemsMutex.lock();
-    for (auto* ref : questItems) {
+    size = questItems.size();
+    //logger::info("questItems size[{}]", size);
+    for (size_t i = 0; i < size; i++) {
+        RE::TESObjectREFR* ref = questItems[i];
         if (gfuncs::IsFormValid(ref)) {
             std::string refName = ref->GetDisplayFullName();
             if (refName != "") {
                 std::string newName = RemoveQuestItemTagFromString(refName);
                 if (newName != refName) {
                     ref->SetDisplayName(newName, true);
-                    //logger::info("Setting display name to [{}]", newName);
+                    ////logger::info("Setting display name to [{}]", newName);
                     auto it = std::find(questItems.begin(), questItems.end(), ref);
                     if (it == questItems.end()) {
                         questItems.push_back(ref);
@@ -601,10 +608,12 @@ void RemoveTags() {
 }
 
 void AddTags() {
-    //RE::DebugNotification("Adding tags");
+    //RE::DebugNotification("Adding tags"); 
     questItemsMutex.lock();
     auto playerQuestItems = GetQuestObjectRefsInContainer(player);
-    for (auto* ref : playerQuestItems) {
+    size_t size = playerQuestItems.size();
+    for (size_t i = 0; i < size; i++) {
+        RE::TESObjectREFR* ref = playerQuestItems[i];
         if (gfuncs::IsFormValid(ref)) {
             uint32_t refId = ref->GetFormID(); 
             auto itr = std::find(ignoredRefIDs.begin(), ignoredRefIDs.end(), refId);
@@ -628,13 +637,13 @@ void AddTags() {
 
     recentItemsMutex.lock();
     std::vector<uint32_t> ids;
-    size_t size = recentItemIds.size();
+    size = recentItemIds.size();
     //logger::info("size[{}]", size);
     int count = 0;
     for (int i = (size - 1); i >= 0 && count < numOfRecentItemsDisplayed; i--) {
         auto* form = RE::TESForm::LookupByID(recentItemIds[i]);
         if (gfuncs::IsFormValid(form)) {
-            int itemCount = gfuncs::GetItemCount_NoChecks(player, form);
+            int itemCount = gfuncs::GetItemCount(player, form);
             //logger::info("form[{}] itemCount[{}]", gfuncs::GetFormName(form), itemCount);
             if (itemCount > 0) {
                 bool changedName = false;
@@ -699,7 +708,6 @@ void AddTags() {
     }
     recentItemIds = ids;
     recentItemsMutex.unlock();
-
     std::this_thread::sleep_for(std::chrono::milliseconds(iMenuRefreshMillisecondDelay));
     gfuncs::RefreshItemMenu();
 }
@@ -835,7 +843,6 @@ void LoadRecentItems(SKSE::SerializationInterface* ssi, std::vector<RE::TESForm*
     RemoveTags();
     recentItemsMutex.lock();
     recentItemIds = ids;
-    recentItemsMutex.unlock();
     
     std::vector<RE::TESObjectREFR*> playerQuestItems = GetQuestObjectRefsInContainer(player);
 
@@ -844,17 +851,19 @@ void LoadRecentItems(SKSE::SerializationInterface* ssi, std::vector<RE::TESForm*
 
     //LoadSettingsFromIni();
 
-    int i = 0;
-    int size = loadedRecentItems.size();
+    size_t size = loadedRecentItems.size();
 
-    for (i; i < size; i++) {
+    for (int i = 0; i < size; i++) {
         RE::TESForm* akForm = loadedRecentItems[i];
         if (gfuncs::IsFormValid(akForm)) {
             RemoveTagsFromFormOrRef(akForm);
         }
     }
 
-    for (RE::TESObjectREFR* ref : loadedQuestItems) {
+    size = loadedQuestItems.size();
+
+    for (int i = 0; i < size; i++) {
+        RE::TESObjectREFR* ref = loadedQuestItems[i];
         if (gfuncs::IsFormValid(ref)) {
             std::string refName = ref->GetDisplayFullName();
             std::string newName = RemoveQuestItemTagFromString(refName);
@@ -864,13 +873,19 @@ void LoadRecentItems(SKSE::SerializationInterface* ssi, std::vector<RE::TESForm*
         }
     }
 
-    for (RE::TESObjectREFR* ref : playerQuestItems) {
-        std::string refName = ref->GetDisplayFullName();
-        std::string newName = RemoveQuestItemTagFromString(refName);
-        if (newName != refName) {
-            ref->SetDisplayName(newName, true);
+    size = playerQuestItems.size();
+
+    for (int i = 0; i < size; i++) {
+        RE::TESObjectREFR* ref = playerQuestItems[i];
+        if (gfuncs::IsFormValid(ref)) {
+            std::string refName = ref->GetDisplayFullName();
+            std::string newName = RemoveQuestItemTagFromString(refName);
+            if (newName != refName) {
+                ref->SetDisplayName(newName, true);
+            }
         }
     }
+    recentItemsMutex.unlock();
 }
 
 void LoadCallback(SKSE::SerializationInterface* ssi) {
@@ -879,27 +894,26 @@ void LoadCallback(SKSE::SerializationInterface* ssi) {
         if (!isSerializing) {
             isSerializing = true;
             
-            std::vector<RE::TESForm*> loadedRecentItems;
-            std::vector<RE::TESObjectREFR*> loadedQuestItems;
-            std::vector<uint32_t> ids;
+            std::vector<RE::TESForm*> loadedRecentItems = {};
+            std::vector<RE::TESObjectREFR*> loadedQuestItems = {};
+            std::vector<uint32_t> ids = {};
             std::uint32_t type, version, length;
-
+            
             while (ssi->GetNextRecordInfo(type, version, length)) {
-                if (type == recentItemsRecord) {
+                if (type == recentItemIdsRecord) {
+                    ids = serialize::LoadFormIDVector(recentItemIdsRecord, ssi);
+                }
+                else if (type == recentItemsRecord) {
                     loadedRecentItems = serialize::LoadFormVector(recentItemsRecord, ssi);
                 }
                 else if (type == questItemsRecord) {
                     loadedQuestItems = serialize::LoadObjectRefVector(questItemsRecord, ssi);
                 }
-                else if (type == recentItemIdsRecord) {
-                    ids = serialize::LoadFormIDVector(recentItemIdsRecord, ssi);
-                    
-                }
             }
 
             LoadRecentItems(ssi, loadedRecentItems, loadedQuestItems, ids);
             isSerializing = false;
-            //logger::trace("completed");
+            logger::trace("completed");
         }
         else {
             logger::debug("already loading or saving, aborting load.");
@@ -914,7 +928,7 @@ void SaveCallback(SKSE::SerializationInterface* ssi) {
     //logger::trace("called");
     if (ssi) {
         if (!isSerializing) {
-            //isSerializing = true; //
+            isSerializing = true; //
 
             //recentItemsMutex.lock();
             //serialize::SaveFormVector(recentItems, recentItemsRecord, ssi);
@@ -927,9 +941,10 @@ void SaveCallback(SKSE::SerializationInterface* ssi) {
             recentItemsMutex.lock();
             serialize::SaveFormIDVector(recentItemIds, recentItemIdsRecord, ssi);
             recentItemsMutex.unlock();
+            isSerializing = false;
             logger::trace("completed");
         }
-        else {
+        else { 
             logger::debug("already loading or saving, aborting load.");
         }
     }
